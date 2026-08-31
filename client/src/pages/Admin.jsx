@@ -9,6 +9,11 @@ const emptyForm = {
   amenities: "",
 };
 
+const emptyBookingForm = {
+  checkIn: "",
+  checkOut: "",
+};
+
 // Turn a comma-separated amenities string into an array.
 function parseAmenities(value) {
   return value
@@ -36,7 +41,23 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString();
 }
 
-// Admin room management.
+// Format an ISO date string for a date input's value (YYYY-MM-DD).
+function toDateInputValue(value) {
+  if (!value) {
+    return "";
+  }
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+// Fill the booking edit form from an existing booking.
+function bookingFormFromBooking(booking) {
+  return {
+    checkIn: toDateInputValue(booking.checkIn),
+    checkOut: toDateInputValue(booking.checkOut),
+  };
+}
+
+// Admin room and booking management.
 export function Admin() {
   const [rooms, setRooms] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -47,6 +68,9 @@ export function Admin() {
   const [bookings, setBookings] = useState([]);
   const [bookingsError, setBookingsError] = useState("");
   const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingForm, setBookingForm] = useState(emptyBookingForm);
+  const [editingBookingId, setEditingBookingId] = useState(null);
+  const [bookingBusy, setBookingBusy] = useState(false);
 
   // Load rooms and bookings when the page opens.
   useEffect(() => {
@@ -76,6 +100,45 @@ export function Admin() {
     }
   }
 
+  // Start editing a booking's dates in the form.
+  function handleEditBooking(booking) {
+    setEditingBookingId(booking._id);
+    setBookingForm(bookingFormFromBooking(booking));
+    setBookingsError("");
+  }
+
+  // Clear the booking form and stop editing.
+  function handleCancelBookingEdit() {
+    setEditingBookingId(null);
+    setBookingForm(emptyBookingForm);
+  }
+
+  // Keep a booking form field in sync with typing.
+  function handleBookingFormChange(event) {
+    const { name, value } = event.target;
+    setBookingForm({ ...bookingForm, [name]: value });
+  }
+
+  // Save the edited check-in/check-out dates for a booking.
+  async function handleSubmitBookingEdit(event) {
+    event.preventDefault();
+    setBookingsError("");
+    setBookingBusy(true);
+    try {
+      await put(
+        `/bookings/${editingBookingId}`,
+        { checkIn: bookingForm.checkIn, checkOut: bookingForm.checkOut },
+        { withUser: true }
+      );
+      handleCancelBookingEdit();
+      await loadBookings();
+    } catch (err) {
+      setBookingsError(err.message);
+    } finally {
+      setBookingBusy(false);
+    }
+  }
+
   // Delete a booking after a simple confirm.
   async function handleDeleteBooking(booking) {
     const label = booking.room ? booking.room.name : "this room";
@@ -84,13 +147,16 @@ export function Admin() {
     }
     try {
       await del(`/bookings/${booking._id}`, { withUser: true });
+      if (editingBookingId === booking._id) {
+        handleCancelBookingEdit();
+      }
       setBookings(bookings.filter((item) => item._id !== booking._id));
     } catch (err) {
       setBookingsError(err.message);
     }
   }
 
-  // Keep a form field in sync with typing.
+  // Keep a room form field in sync with typing.
   function handleChange(event) {
     const { name, value } = event.target;
     setForm({ ...form, [name]: value });
@@ -232,9 +298,48 @@ export function Admin() {
         )}
       </div>
 
+      {editingBookingId && (
+        <div className="card admin-form">
+          <h2>Edit booking</h2>
+          <form className="form" onSubmit={handleSubmitBookingEdit}>
+            <div className="form-row">
+              <label>
+                Check-in
+                <input
+                  name="checkIn"
+                  type="date"
+                  value={bookingForm.checkIn}
+                  onChange={handleBookingFormChange}
+                  required
+                />
+              </label>
+              <label>
+                Check-out
+                <input
+                  name="checkOut"
+                  type="date"
+                  value={bookingForm.checkOut}
+                  onChange={handleBookingFormChange}
+                  required
+                />
+              </label>
+            </div>
+            {bookingsError && <p className="error">{bookingsError}</p>}
+            <div className="room-actions">
+              <button className="btn btn-primary" type="submit" disabled={bookingBusy}>
+                {bookingBusy ? "Saving..." : "Save changes"}
+              </button>
+              <button className="btn btn-outline" type="button" onClick={handleCancelBookingEdit}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div className="card table-card">
         <h2>All customer bookings</h2>
-        {bookingsError && <p className="error">{bookingsError}</p>}
+        {!editingBookingId && bookingsError && <p className="error">{bookingsError}</p>}
         {bookingsLoading && <p className="muted">Loading bookings...</p>}
         {!bookingsLoading && bookings.length === 0 && <p className="muted">No bookings yet.</p>}
         {bookings.length > 0 && (
@@ -260,6 +365,9 @@ export function Admin() {
                   <td>{formatDate(booking.checkIn)}</td>
                   <td>{formatDate(booking.checkOut)}</td>
                   <td className="table-actions">
+                    <button className="btn btn-outline" type="button" onClick={() => handleEditBooking(booking)}>
+                      Edit
+                    </button>
                     <button className="btn btn-danger" type="button" onClick={() => handleDeleteBooking(booking)}>
                       Delete
                     </button>

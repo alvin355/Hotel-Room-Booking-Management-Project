@@ -101,6 +101,47 @@ async function createBooking(req, res) {
   res.status(201).json({ ...booking, _id: result.insertedId });
 }
 
+// Update a booking's dates (admin). Re-checks availability, excluding itself.
+async function updateBooking(req, res) {
+  const admin = await requireAdmin(req, res);
+  if (!admin) {
+    return;
+  }
+
+  const id = parseId(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "Invalid booking id" });
+  }
+
+  const existing = await bookings().findOne({ _id: id });
+  if (!existing) {
+    return res.status(404).json({ error: "Booking not found" });
+  }
+
+  const { checkIn, checkOut } = req.body || {};
+  const start = parseDate(checkIn);
+  const end = parseDate(checkOut);
+  if (!start || !end) {
+    return res.status(400).json({ error: "checkIn and checkOut are required" });
+  }
+  if (end <= start) {
+    return res.status(400).json({ error: "checkOut must be after checkIn" });
+  }
+
+  const room = await rooms().findOne({ _id: existing.roomId });
+  if (!room) {
+    return res.status(404).json({ error: "Room not found" });
+  }
+
+  const availableCount = await getAvailableCount(room, start, end, existing._id);
+  if (availableCount <= 0) {
+    return res.status(409).json({ error: "No rooms available for those dates" });
+  }
+
+  await bookings().updateOne({ _id: id }, { $set: { checkIn: start, checkOut: end } });
+  res.json({ ...existing, checkIn: start, checkOut: end });
+}
+
 // Delete any booking (admin only).
 async function adminDeleteBooking(req, res) {
   const admin = await requireAdmin(req, res);
@@ -124,6 +165,7 @@ async function adminDeleteBooking(req, res) {
 router.get("/", listBookings);
 router.get("/admin", listAllBookings);
 router.post("/", createBooking);
+router.put("/:id", updateBooking);
 router.delete("/:id", adminDeleteBooking);
 
 module.exports = router;
