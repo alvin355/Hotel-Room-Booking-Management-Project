@@ -8,12 +8,10 @@ const router = express.Router();
 function bookmarks() {
   return getDb().collection("bookmarks");
 }
-
 // Return the rooms collection.
 function rooms() {
   return getDb().collection("rooms");
 }
-
 // List the logged-in user's saved rooms. Send userId as a query param.
 async function listBookmarks(req, res) {
   const user = await requireUser(req, res);
@@ -31,7 +29,6 @@ async function listBookmarks(req, res) {
   }
   res.json(result);
 }
-
 // Save a room for the logged-in user. Body: { userId, roomId }.
 async function addBookmark(req, res) {
   const user = await requireUser(req, res);
@@ -58,7 +55,6 @@ async function addBookmark(req, res) {
   const result = await bookmarks().insertOne(bookmark);
   res.status(201).json({ ...bookmark, _id: result.insertedId, room });
 }
-
 // Remove a saved room. Send userId as a query param.
 async function removeBookmark(req, res) {
   const user = await requireUser(req, res);
@@ -78,9 +74,7 @@ async function removeBookmark(req, res) {
 
   res.json({ ok: true });
 }
-
 router.get("/", listBookmarks);
 router.post("/", addBookmark);
 router.delete("/:roomId", removeBookmark);
-
 module.exports = router;

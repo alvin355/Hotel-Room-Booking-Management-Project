@@ -14,7 +14,6 @@ export function Bookmarks() {
   useEffect(() => {
     loadSaved();
   }, []);
-
   // Fetch bookmarked rooms for the logged-in user.
   async function loadSaved() {
     setLoading(true);
@@ -45,7 +44,6 @@ export function Bookmarks() {
         <h1>Saved rooms</h1>
         <p className="muted">Rooms you bookmarked so you can view or book them later.</p>
       </div>
-
       {error && <p className="error">{error}</p>}
       {loading && <p className="muted">Loading saved rooms...</p>}
       {!loading && rooms.length === 0 && <p className="muted margin-top">You have not saved any rooms yet.</p>}
