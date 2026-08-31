@@ -7,7 +7,6 @@ function nightsBetween(checkIn, checkOut) {
     const end = new Date(checkOut);
     return Math.round((end - start) / (1000 * 60 * 60 * 24));
 }
-
 // Format an ISO date string as something readable.
 function formatDate(value) {
     return new Date(value).toLocaleDateString(undefined, {
@@ -16,7 +15,6 @@ function formatDate(value) {
         day: "numeric",
     });
 }
-
 // Customer's booking history.
 export function Bookings() {
     const [bookings, setBookings] = useState([]);
