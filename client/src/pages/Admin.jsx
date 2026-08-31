@@ -27,7 +27,6 @@ function formFromRoom(room) {
     amenities: (room.amenities || []).join(", "),
   };
 }
-
 // Admin room management.
 export function Admin() {
   const [rooms, setRooms] = useState([]);
@@ -62,7 +61,6 @@ export function Admin() {
     setForm(formFromRoom(room));
     setError("");
   }
-
   // Clear the form and stop editing.
   function handleCancel() {
     setEditingId(null);
