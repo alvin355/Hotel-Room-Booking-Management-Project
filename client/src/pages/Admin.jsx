@@ -27,6 +27,15 @@ function formFromRoom(room) {
     amenities: (room.amenities || []).join(", "),
   };
 }
+
+// Format an ISO date string for display.
+function formatDate(value) {
+  if (!value) {
+    return "-";
+  }
+  return new Date(value).toLocaleDateString();
+}
+
 // Admin room management.
 export function Admin() {
   const [rooms, setRooms] = useState([]);
@@ -35,9 +44,14 @@ export function Admin() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Load rooms when the page opens.
+  const [bookings, setBookings] = useState([]);
+  const [bookingsError, setBookingsError] = useState("");
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+
+  // Load rooms and bookings when the page opens.
   useEffect(() => {
     loadRooms();
+    loadBookings();
   }, []);
 
   // Fetch all rooms for the table.
@@ -46,6 +60,33 @@ export function Admin() {
       setRooms(await get("/rooms"));
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  // Fetch every customer booking with room and customer details.
+  async function loadBookings() {
+    setBookingsLoading(true);
+    setBookingsError("");
+    try {
+      setBookings(await get("/bookings/admin", { withUser: true }));
+    } catch (err) {
+      setBookingsError(err.message);
+    } finally {
+      setBookingsLoading(false);
+    }
+  }
+
+  // Delete a booking after a simple confirm.
+  async function handleDeleteBooking(booking) {
+    const label = booking.room ? booking.room.name : "this room";
+    if (!window.confirm(`Remove the booking for "${label}"?`)) {
+      return;
+    }
+    try {
+      await del(`/bookings/${booking._id}`, { withUser: true });
+      setBookings(bookings.filter((item) => item._id !== booking._id));
+    } catch (err) {
+      setBookingsError(err.message);
     }
   }
 
@@ -61,6 +102,7 @@ export function Admin() {
     setForm(formFromRoom(room));
     setError("");
   }
+
   // Clear the form and stop editing.
   function handleCancel() {
     setEditingId(null);
@@ -180,6 +222,45 @@ export function Admin() {
                       Edit
                     </button>
                     <button className="btn btn-danger" type="button" onClick={() => handleDelete(room)}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card table-card">
+        <h2>All customer bookings</h2>
+        {bookingsError && <p className="error">{bookingsError}</p>}
+        {bookingsLoading && <p className="muted">Loading bookings...</p>}
+        {!bookingsLoading && bookings.length === 0 && <p className="muted">No bookings yet.</p>}
+        {bookings.length > 0 && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Room</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.map((booking) => (
+                <tr key={booking._id}>
+                  <td>
+                    {booking.customer ? booking.customer.name : "Unknown"}
+                    <br />
+                    <span className="muted">{booking.customer ? booking.customer.email : ""}</span>
+                  </td>
+                  <td>{booking.room ? booking.room.name : "Deleted room"}</td>
+                  <td>{formatDate(booking.checkIn)}</td>
+                  <td>{formatDate(booking.checkOut)}</td>
+                  <td className="table-actions">
+                    <button className="btn btn-danger" type="button" onClick={() => handleDeleteBooking(booking)}>
                       Delete
                     </button>
                   </td>
